@@ -1,3 +1,8 @@
+//MC1でvelモード, MC2でposモードに変更可能 各モードに入ったのちM〇〇を入力で操作可能
+//logが出る 105.0000        5.5700  100.5478        10018.9189
+//無負荷で100rad/s出せた
+
+
 #include <SimpleFOC.h>
 
 // TODO: motor instance
