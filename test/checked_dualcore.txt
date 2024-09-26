@@ -1,3 +1,10 @@
+/*
+esp32のdual coreを用いてsimpleFOCを動かす
+motor.loopFOC():を1kHz以上で可能な限り高頻度で呼び出す必要があるため、モータ駆動に1つのcoreを専有させたい
+WDTが無効化されているcore1をモータに当てること
+そのため、もう一つのcoreでデータの送受信やLEDの制御をする
+*/
+
 #include <SimpleFOC.h>
 #include <SPI.h>
 
