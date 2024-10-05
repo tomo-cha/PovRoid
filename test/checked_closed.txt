@@ -4,6 +4,8 @@
 
 
 #include <SimpleFOC.h>
+#include <Adafruit_DotStar.h>
+#include <SPI.h>
 
 // TODO: motor instance
 BLDCMotor motor = BLDCMotor(11, 5.57/2.0);
@@ -45,8 +47,6 @@ void setup()
   // link driver
   motor.linkDriver(&driver);
 
-  // TODO: motor conf
-  // motor.voltage_limit = 12;
 
   // set motion control loop to be used
   motor.torque_controller = TorqueControlType::voltage;
@@ -72,7 +72,8 @@ void setup()
   }
 
   // set the initial motor target
-  motor.target = 120; // rad/s
+  motor.target = 30; // rad/s
+  motor.voltage_limit = 1;
 
   // add target command M
   command.add('M', doMotor, "Motor");
