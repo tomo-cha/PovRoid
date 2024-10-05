@@ -13,6 +13,8 @@
         "initializer_list": "cpp",
         "span": "cpp",
         "regex": "cpp",
-        "valarray": "cpp"
+        "valarray": "cpp",
+        "functional": "cpp",
+        "random": "cpp"
     }
 }
