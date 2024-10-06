@@ -1,8 +1,9 @@
 /*
 esp32のdual coreを用いてsimpleFOCを動かす
 motor.loopFOC():を1kHz以上で可能な限り高頻度で呼び出す必要があるため、モータ駆動に1つのcoreを専有させたい
-WDTが無効化されているcore1をモータに当てること
-そのため、もう一つのcoreでデータの送受信やLEDの制御をする
+WDTが無効化されているcore1をモータに当てる
+core0でデータのudp送受信やLEDの制御をする
+commanderを使わずにmotor.targetを変更
 */
 
 #include <Preferences.h>
@@ -33,19 +34,21 @@ BLDCDriver3PWM driver = BLDCDriver3PWM(25, 26, 27, 33);
 // TODO: sensor instance
 MagneticSensorSPI sensor = MagneticSensorSPI(AS5048_SPI, 5); // cs=ss=IO5
 
-// instantiate the commander
-// Commander command = Commander(Serial);
-// void doMotor(char *cmd) { command.motor(&motor, cmd); }
-// void doLimit(char *cmd) { command.scalar(&motor.voltage_limit, cmd); }
+/*
+タイマー
+*/
+int past_time = 0;
 
 /*
 preference
 */
 Preferences preferences;
 float zero_position;
-int count = 0;
-int past_time = 0;
-bool s = false;
+
+/*
+Serial
+*/
+bool dataReceived = false;
 
 /*
 dual core
@@ -77,8 +80,7 @@ void motorControlTask(void *pvParameters)
     motor.torque_controller = TorqueControlType::voltage;
     motor.controller = MotionControlType::angle;
 
-    // use monitoring with serial SimpleFOCDebug::enable(&Serial);の役割を含んでいる
-    // comment out if not needed
+    // use monitoring with serial. SimpleFOCDebug::enable(&Serial);の役割を含んでいる
     if (kMotorDebug)
     {
         motor.useMonitoring(Serial);
@@ -109,30 +111,48 @@ void motorControlTask(void *pvParameters)
     motor.target = zero_position; // rad/s
     motor.voltage_limit = 1;      // V
 
-    // add target command M
-    // command.add('M', doMotor, "Motor");
-    // command.add('L', doLimit, "voltage limit");
-
     Serial.println(F("Motor ready."));
-    // Serial.println(F("Set the target using serial terminal and command M:"));
     _delay(1000);
 
     while (1)
     {
         // main FOC algorithm function
         motor.loopFOC();
-        motor.monitor();
-
-        // Motion control function
-        motor.move();
-        if (s)
+        if (kMotorDebug)
         {
-            int current_time = micros();
+            motor.monitor();
+        }
+        motor.move();
+
+        /*
+        時間による演出
+        10秒後にvelocity modeに変更。初期値として30rad/sを設定
+        */
+        int current_time = millis();
+        if (current_time - past_time > 10000)
+        {
+            motor.controller = MotionControlType::velocity;
+            motor.target = 30;
+            past_time = current_time;
         }
 
-        // user communication
-        // command.run();
-        // delay(1); // 1以上にするとウォッチドッグのリセットがなくなる
+        // serial input string to float
+        String str;
+        while (Serial.available())
+        {
+            char c = Serial.read();
+            if (c != '\n')
+            {
+                str += c;
+            }
+            dataReceived = true;
+        }
+        if (dataReceived)
+        {
+            float input = str.toFloat();
+            motor.target = zero_position + input;
+            dataReceived = false;
+        }
     }
 }
 
@@ -142,23 +162,6 @@ void testTask(void *pvParameters)
     Serial.println(xPortGetCoreID()); // 動作確認用出力
     while (1)
     {
-        int a = micros();
-        String str;
-        while (Serial.available())
-        {
-            char c = Serial.read();
-            if (c != '\n')
-            {
-                str += c;
-            }
-            s = true;
-        }
-        if (s)
-        {
-            float input = str.toFloat();
-            motor.target = zero_position + input;
-            s = false;
-        }
         vPortYield(); // vPortYield()ではウォッチドッグに影響しない
         yield();      // yield()ではウォッチドッグに影響しない
         delay(1);     // 1以上にするとウォッチドッグのリセットがなくなる

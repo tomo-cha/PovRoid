@@ -125,24 +125,8 @@ void motorControlTask(void *pvParameters)
 
         // Motion control function
         motor.move();
-        if (s)
-        {
-            int current_time = micros();
-        }
 
-        // user communication
-        // command.run();
-        // delay(1); // 1以上にするとウォッチドッグのリセットがなくなる
-    }
-}
-
-void testTask(void *pvParameters)
-{
-    Serial.print("testTask exec core: ");
-    Serial.println(xPortGetCoreID()); // 動作確認用出力
-    while (1)
-    {
-        int a = micros();
+        // serial input
         String str;
         while (Serial.available())
         {
@@ -159,6 +143,19 @@ void testTask(void *pvParameters)
             motor.target = zero_position + input;
             s = false;
         }
+
+        // user communication
+        // command.run();
+        // delay(1); // 1以上にするとウォッチドッグのリセットがなくなる
+    }
+}
+
+void testTask(void *pvParameters)
+{
+    Serial.print("testTask exec core: ");
+    Serial.println(xPortGetCoreID()); // 動作確認用出力
+    while (1)
+    {
         vPortYield(); // vPortYield()ではウォッチドッグに影響しない
         yield();      // yield()ではウォッチドッグに影響しない
         delay(1);     // 1以上にするとウォッチドッグのリセットがなくなる
