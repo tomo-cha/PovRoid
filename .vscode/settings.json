@@ -15,6 +15,10 @@
         "regex": "cpp",
         "valarray": "cpp",
         "functional": "cpp",
-        "random": "cpp"
+        "random": "cpp",
+        "bitset": "cpp",
+        "algorithm": "cpp",
+        "*.tcc": "cpp",
+        "system_error": "cpp"
     }
 }

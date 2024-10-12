@@ -34,16 +34,62 @@ BLDCDriver3PWM driver = BLDCDriver3PWM(25, 26, 27, 33);
 // TODO: sensor instance
 MagneticSensorSPI sensor = MagneticSensorSPI(AS5048_SPI, 5); // cs=ss=IO5
 
-/*
-タイマー
-*/
-int past_time = 0;
+Commander command = Commander(Serial);
+void doMotor(char *cmd) { command.motor(&motor, cmd); }
+void doLimit(char *cmd) { command.scalar(&motor.voltage_limit, cmd); }
+const float buffer = 0.1;
 
 /*
 preference
 */
 Preferences preferences;
 float zero_position;
+
+/*
+LED
+*/
+const int NUMPIXELS = 25 * 2;
+const int Div = 60;
+#define DATAPIN 16
+#define CLOCKPIN 4
+Adafruit_DotStar strip(NUMPIXELS, DATAPIN, CLOCKPIN, DOTSTAR_BRG);
+unsigned long pic[Div][NUMPIXELS] = {
+    0,
+};
+char chararrayDiv[] = "0x00";
+char chararrayColor[] = "0xffffff";
+unsigned int numDiv = 0;
+unsigned long rotTime, timeOld;
+float real_vel = 0.00;
+bool isZeroPositionPassed = true;
+
+/*
+タイマー
+*/
+// hw_timer_t *timer = NULL;
+// volatile SemaphoreHandle_t timerSemaphore;
+// portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
+// int timer_core;
+
+// void ARDUINO_ISR_ATTR onTimer()
+// {
+//     // Increment the counter and set the time of ISR
+//     portENTER_CRITICAL_ISR(&timerMux);
+//     // It is safe to use digitalRead/Write here if you want to toggle an output
+//     sensor.update();
+//     float currentSensorValue = -1.0 * sensor.getAngle();
+//     float normalizedSensorValue = fmod(currentSensorValue, 2.0 * PI);
+//     if (abs(zero_position - normalizedSensorValue) <= buffer)
+//     {
+//         unsigned long timeNow = micros();
+//         rotTime = timeNow - timeOld;
+//         timeOld = timeNow;
+//     }
+//     portEXIT_CRITICAL_ISR(&timerMux);
+//     // Give a semaphore that we can check in the loop
+//     xSemaphoreGiveFromISR(timerSemaphore, NULL);
+// }
+int past_time = 0;
 
 /*
 Serial
@@ -55,10 +101,18 @@ dual core
 */
 TaskHandle_t taskHandle[2];
 
-void motorControlTask(void *pvParameters)
+void getZeroPosition()
 {
-    Serial.print("motorControlTask exec core: ");
-    Serial.println(xPortGetCoreID()); // 動作確認用出力
+    preferences.begin("setPosition", false);
+    zero_position = preferences.getFloat("zeroPosition", 0);
+    Serial.print("Current zeroPosition value: ");
+    Serial.println(zero_position);
+    preferences.end();
+}
+
+void motorSetUp()
+
+{
     // init the sensor
     sensor.init();
     // link the motor to the sensor
@@ -78,7 +132,7 @@ void motorControlTask(void *pvParameters)
 
     // set motion control loop to be used
     motor.torque_controller = TorqueControlType::voltage;
-    motor.controller = MotionControlType::angle;
+    motor.controller = MotionControlType::velocity_openloop;
 
     // use monitoring with serial. SimpleFOCDebug::enable(&Serial);の役割を含んでいる
     if (kMotorDebug)
@@ -100,59 +154,85 @@ void motorControlTask(void *pvParameters)
         Serial.println("FOC init failed!");
         return;
     }
-
-    preferences.begin("setPosition", false);
-    zero_position = preferences.getFloat("zeroPosition", 0);
-    Serial.print("Current zeroPosition value: ");
-    Serial.println(zero_position);
-    preferences.end();
-
+    getZeroPosition();
     // set the initial motor target
-    motor.target = zero_position; // rad/s
-    motor.voltage_limit = 1;      // V
+    // motor.target = zero_position; // rad/s
+    motor.target = 10;       // rad/s
+    motor.voltage_limit = 4; // V
+
+    // add target command M
+    command.add('M', doMotor, "Motor");
+    command.add('L', doLimit, "voltage limit");
 
     Serial.println(F("Motor ready."));
+}
+
+void motorControlTask(void *pvParameters)
+{
+
+    // // タイマー https://docs.espressif.com/projects/arduino-esp32/en/latest/api/timer.html
+    // timerSemaphore = xSemaphoreCreateBinary();
+    // // Set timer frequency to 1Mhz
+    // timer = timerBegin(1000000);
+
+    // // Attach onTimer function to our timer.
+    // timerAttachInterrupt(timer, &onTimer);
+
+    // // Set alarm to call onTimer function every second (value in microseconds).
+    // // Repeat the alarm (third parameter) with unlimited count = 0 (fourth parameter).
+    // timerAlarm(timer, 1000000, true, 0);
+    Serial.print("motorControlTask exec core: ");
+    Serial.println(xPortGetCoreID()); // 動作確認用出力
+
+    motorSetUp();
     _delay(1000);
 
     while (1)
     {
         // main FOC algorithm function
-        motor.loopFOC();
+        // motor.loopFOC();
+
+        motor.move();
+
+        command.run();
         if (kMotorDebug)
         {
             motor.monitor();
         }
-        motor.move();
-
         /*
         時間による演出
-        10秒後にvelocity modeに変更。初期値として30rad/sを設定
+        10秒後にvelocity modeに変更。
         */
-        int current_time = millis();
-        if (current_time - past_time > 10000)
-        {
-            motor.controller = MotionControlType::velocity;
-            motor.target = 30;
-            past_time = current_time;
-        }
+        // int current_time = millis();
+        // if (current_time - past_time > 10000)
+        // {
+        //     motor.controller = MotionControlType::velocity;
+        //     motor.target = 80;
+        //     // past_time = current_time;
+        // }
 
         // serial input string to float
-        String str;
-        while (Serial.available())
-        {
-            char c = Serial.read();
-            if (c != '\n')
-            {
-                str += c;
-            }
-            dataReceived = true;
-        }
-        if (dataReceived)
-        {
-            float input = str.toFloat();
-            motor.target = zero_position + input;
-            dataReceived = false;
-        }
+        // String str;
+        // while (Serial.available())
+        // {
+        //     char c = Serial.read();
+        //     if (c != '\n')
+        //     {
+        //         str += c;
+        //     }
+        //     dataReceived = true;
+        // }
+        // if (dataReceived)
+        // {
+        //     if (str == "v")
+        //     {
+        //         motor.controller = MotionControlType::angle;
+        //     }
+        //     float input = str.toFloat();
+
+        //     motor.target = zero_position + input;
+        //     dataReceived = false;
+        // }
     }
 }
 
@@ -160,11 +240,57 @@ void testTask(void *pvParameters)
 {
     Serial.print("testTask exec core: ");
     Serial.println(xPortGetCoreID()); // 動作確認用出力
+    strip.begin();
+
+    delay(10000);
     while (1)
     {
-        vPortYield(); // vPortYield()ではウォッチドッグに影響しない
-        yield();      // yield()ではウォッチドッグに影響しない
-        delay(1);     // 1以上にするとウォッチドッグのリセットがなくなる
+        sensor.update();
+        float currentSensorValue = -1.0 * sensor.getAngle();
+        float normalizedSensorValue = fmod(currentSensorValue, 2.0 * PI);
+        if (abs(zero_position - normalizedSensorValue) <= buffer)
+        {
+            unsigned long timeNow = micros();
+            rotTime = timeNow - timeOld;
+            timeOld = timeNow;
+            if (isZeroPositionPassed)
+            {
+                real_vel = 2 * PI * 1000000 / rotTime;
+                Serial.println(real_vel);
+                isZeroPositionPassed = false;
+            }
+        }
+        // if (xSemaphoreTake(timerSemaphore, 0) == pdTRUE)
+        // {
+        if (micros() - timeOld > rotTime / Div * (numDiv + 1))
+        {
+            isZeroPositionPassed = true;
+            strip.clear(); // 一つ前の点灯パターンを消さないとそのまま残る。これがないと画像が回転しているように見える
+            for (int i = 0; i < NUMPIXELS; i++)
+            {
+                strip.setPixelColor(i, 0xFF0000);
+            }
+            // setした通りにLEDを光らせる
+
+            strip.show();
+
+            numDiv++;
+            if (numDiv >= Div - 1)
+            {
+                numDiv = 0;
+            }
+        }
+        // }
+        // strip.clear(); // 一つ前の点灯パターンを消さないとそのまま残る。これがないと画像が回転しているように見える
+        // for (int i = 0; i < NUMPIXELS; i++)
+        // {
+        //     strip.setPixelColor(i, 0xFF0000);
+        // }
+        // setした通りにLEDを光らせる
+        // Serial.println("before show");
+        // strip.show();
+        // Serial.println("after show"); // 160ms
+        delay(1); // 1以上にするとウォッチドッグのリセットがなくなる
     }
 }
 
@@ -172,18 +298,18 @@ void setup()
 {
     Serial.begin(115200);
 
-    // Core0でタスク起動
+    // Core1でタスク起動
     xTaskCreatePinnedToCore(
         motorControlTask, // タスク関数へのポインタ。無限ループで終了しないよう関数を指定します
         "testTask1",      // タスクの説明用名前。重複しても動きますがデバッグ用途。最大16文字まで
         8192,             // スタックサイズ(Byte)
         NULL,             // 作成タスクのパラメータのポインタ
-        2,                // 作成タスクの優先順位(0:低 - 25:高)
+        1,                // 作成タスクの優先順位(0:低 - 25:高)
         &taskHandle[0],   // 作成タスクのHandleへのポインタ
         1                 // 利用するCPUコア(0-1)
     );
 
-    // Core1でタスク起動
+    // Core0でタスク起動
     xTaskCreatePinnedToCore(
         testTask,
         "testTask2",
