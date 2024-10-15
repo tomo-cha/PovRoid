@@ -12,7 +12,7 @@ args = sys.argv
 
 # 配列設定
 PIXELS = 25  # LED1本あたりのセル数
-NUMTAPES = 1  # 繋げるLEDの本数
+NUMTAPES = 2  # 繋げるLEDの本数
 Div = 60  # 1周の分割数
 l = [[0] * PIXELS*NUMTAPES for i in range(Div)]  # RGBを格納するためのリスト宣言・初期化
 
@@ -93,9 +93,11 @@ udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 for k in range(3): #パケットロスがあるので3回送る
     for j in range(0, Div):
         data = '%02X' % j
-        for i in range(0, PIXELS*NUMTAPES):
+        for i in range(0, PIXELS):
             data+=l[j][i]
-            if i == PIXELS*NUMTAPES-1:
+        for i in range(0, PIXELS):
+            data+=l[(j+Div/2-1)%Div][PIXELS-1-i]
+            if i == PIXELS-1:
                 udp.sendto(data.encode('utf-8'), sendAddr)
                 time.sleep(0.001) #sleepがないとパケットロスが激増する
                 print(data.encode('utf-8'))
