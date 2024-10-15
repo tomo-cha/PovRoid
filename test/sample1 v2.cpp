@@ -70,7 +70,7 @@ float zero_position;
 LED
 */
 // #include "graphics.h"
-const int NUMPIXELS = 25 * 2;
+const int NUMPIXELS = 25 * 1;
 const int Div = 60;
 #define DATAPIN 16
 #define CLOCKPIN 4
