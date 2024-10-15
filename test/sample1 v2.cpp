@@ -70,7 +70,7 @@ float zero_position;
 LED
 */
 // #include "graphics.h"
-const int NUMPIXELS = 25 * 1;
+const int NUMPIXELS = 25 * 2;
 const int Div = 60;
 #define DATAPIN 16
 #define CLOCKPIN 4
@@ -348,7 +348,7 @@ void checkRotationTask(void *pvParameters)
                     real_vel = 2 * PI * 1000000 / rotTime;
                     Serial.println(real_vel);
                     isZeroPositionPassed = false;
-                    numDiv = Div / 2 - 1;
+                    numDiv = 35; // 画像の傾き調整
                 }
             }
             else

@@ -348,7 +348,7 @@ void checkRotationTask(void *pvParameters)
                     real_vel = 2 * PI * 1000000 / rotTime;
                     Serial.println(real_vel);
                     isZeroPositionPassed = false;
-                    numDiv = Div / 2 - 1;
+                    numDiv = 35; //画像の傾き調整
                 }
             }
             else

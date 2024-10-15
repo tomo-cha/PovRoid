@@ -30,7 +30,7 @@ file.write('#define Div ' + str(Div) + '\n' + '\n')
 file.write('const uint32_t pic [Div][NUMPIXELS] = {' + '\n')
 
 # Gifファイルを読み込む
-pic = "test/img/5.png"
+pic = "python/5.png"
 
 #画像変換関数
 def polarConv(pic):
@@ -96,7 +96,7 @@ for k in range(3): #パケットロスがあるので3回送る
         for i in range(0, PIXELS):
             data+=l[j][i]
         for i in range(0, PIXELS):
-            data+=l[(j+Div/2-1)%Div][PIXELS-1-i]
+            data+=l[int((j+Div/2-1)%Div)][PIXELS-1-i]
             if i == PIXELS-1:
                 udp.sendto(data.encode('utf-8'), sendAddr)
                 time.sleep(0.001) #sleepがないとパケットロスが激増する
