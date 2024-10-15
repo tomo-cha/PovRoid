@@ -69,19 +69,20 @@ float zero_position;
 /*
 LED
 */
-// #include "graphics.h"
 const int NUMPIXELS = 25 * 2;
 const int Div = 60;
 #define DATAPIN 16
 #define CLOCKPIN 4
 Adafruit_DotStar strip(NUMPIXELS, DATAPIN, CLOCKPIN, DOTSTAR_BRG);
+// #include "graphics.h"
 unsigned long pic[Div][NUMPIXELS] = {
     0,
 };
 char chararrayDiv[] = "0x00";
 char chararrayColor[] = "0xffffff";
+// char chararrayDiv[4];   // chararrayDivのサイズを設定
+// char chararrayColor[8]; // chararrayColorのサイズを設定
 unsigned int numDiv = 0;
-int stateDiv = 0;
 
 /*
 WIFI
@@ -131,12 +132,9 @@ void motorSetUp()
     // set the initial motor target
     if (currentMode == RotationMode)
     {
-        // motor.controller = MotionControlType::velocity_openloop;
-        // motor.target = 10;
-        // motor.voltage_limit = 4;
-        motor.controller = MotionControlType::velocity;
-        motor.target = 100;
-        motor.voltage_limit = 1;
+        motor.controller = MotionControlType::velocity_openloop;
+        motor.target = 10;
+        motor.voltage_limit = 4;
     }
     else if (currentMode == AngleMode)
     {
@@ -182,7 +180,6 @@ void motorControlTask(void *pvParameters)
         // main FOC algorithm function
         if (currentMode == RotationMode)
         {
-            motor.loopFOC();
         }
         else if (currentMode == AngleMode)
         {
@@ -230,12 +227,9 @@ void serialInputTask(void *pvParameters)
             if (str == "r")
             {
                 setMode(RotationMode);
-                // motor.controller = MotionControlType::velocity_openloop;
-                // motor.target = 10;
-                // motor.voltage_limit = 4;
-                motor.controller = MotionControlType::velocity;
-                motor.target = 100;
-                motor.voltage_limit = 1;
+                motor.controller = MotionControlType::velocity_openloop;
+                motor.target = 10;
+                motor.voltage_limit = 4;
                 Serial.println("Switched to Rotation Mode");
             }
             else if (str == "a")
@@ -254,8 +248,7 @@ void serialInputTask(void *pvParameters)
 
                 if (currentMode == RotationMode)
                 {
-                    // motor.target = input;
-                    motor.voltage_limit = input;
+                    motor.target = input;
                 }
                 else if (currentMode == AngleMode)
                 {
@@ -330,6 +323,7 @@ void wifiTask(void *pvParameters)
 
 void checkRotationTask(void *pvParameters)
 {
+    Serial.print("checkRotationTask exec core: ");
     Serial.println(xPortGetCoreID()); // 動作確認用出力
     while (1)
     {
@@ -348,12 +342,7 @@ void checkRotationTask(void *pvParameters)
                     real_vel = 2 * PI * 1000000 / rotTime;
                     Serial.println(real_vel);
                     isZeroPositionPassed = false;
-                    numDiv = Div / 2 - 1;
                 }
-            }
-            else
-            {
-                isZeroPositionPassed = true;
             }
         }
         delay(1);
@@ -365,29 +354,31 @@ void ledTask(void *pvParameters)
     Serial.print("ledTask exec core: ");
     Serial.println(xPortGetCoreID()); // 動作確認用出力
     strip.begin();
-    delay(5000);
-    Serial.println("clear");
     strip.clear();
     strip.show();
     while (1)
     {
         if (currentMode == RotationMode)
         {
-            strip.clear(); // 一つ前の点灯パターンを消さないとそのまま残る。これがないと画像が回転しているように見える
-            for (int i = 0; i < NUMPIXELS; i++)
-            {
-                strip.setPixelColor(i, pic[numDiv][i]);
-            }
-            // setした通りにLEDを光らせる
-            strip.show();
 
-            if (micros() - timeOld > rotTime / Div * (numDiv + 1))
+            if (micros() - timeOld > rotTime / Div * (numDiv + 1)) // LEDの切り替えタイミング
             {
+                strip.clear(); // 一つ前の点灯パターンを消さないとそのまま残る。これがないと画像が回転しているように見える
+                for (int i = 0; i < NUMPIXELS; i++)
+                {
+                    strip.setPixelColor(i, pic[numDiv][i]);
+                    // Serial.print(pic[numDiv][i]);
+                    // Serial.print(",");
+                }
+                // Serial.print("\n");
+                // setした通りにLEDを光らせる
+                strip.show();
+
                 numDiv++;
-
-                if (numDiv >= Div)
+                if (numDiv >= Div - 1)
                 {
                     numDiv = 0;
+                    isZeroPositionPassed = true;
                 }
             }
         }
@@ -420,7 +411,7 @@ void setup()
         NULL,              // 作成タスクのパラメータのポインタ
         1,                 // 作成タスクの優先順位(0:低 - 25:高)
         &taskHandle[1],    // 作成タスクのHandleへのポインタ
-        1                  // 利用するCPUコア(0-1)
+        0                  // 利用するCPUコア(0-1)
     );
     xTaskCreatePinnedToCore(
         wifiTask,       // タスク関数へのポインタ。無限ループで終了しないよう関数を指定します
