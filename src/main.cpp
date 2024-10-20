@@ -81,14 +81,17 @@ unsigned long pic[Div][NUMPIXELS] = {
 char chararrayDiv[] = "0x00";
 char chararrayColor[] = "0xffffff";
 unsigned int numDiv = 0;
-int stateDiv = 0;
+int stateRot = 0;
 
 /*
 WIFI
 */
 #include "security.h"
 // wifi udp
-AsyncUDP udp;
+AsyncUDP udp_pic;
+AsyncUDP udp_motor;
+const int port_pic = 1234;
+const int port_motor = 9090;
 
 /*
 タイマー
@@ -102,6 +105,7 @@ void getZeroPosition()
     zero_position = preferences.getFloat("zeroPosition", 0);
     Serial.print("Current zeroPosition value: ");
     Serial.println(zero_position);
+    zero_position = fmod(zero_position + 3.14, 2.0 * PI);
     preferences.end();
 }
 
@@ -206,6 +210,43 @@ void motorControlTask(void *pvParameters)
         // }
     }
 }
+void handleUDPInput(String str)
+{
+    if (str == "r")
+    {
+        setMode(RotationMode);
+        motor.controller = MotionControlType::velocity;
+        motor.target = 100;
+        motor.voltage_limit = 1;
+        Serial.println("Switched to Rotation Mode");
+    }
+    else if (str == "a")
+    {
+        setMode(AngleMode);
+        motor.controller = MotionControlType::angle;
+        motor.target = zero_position;
+        motor.voltage_limit = 1;
+        Serial.println("Switched to Angle Mode");
+    }
+    else if (isValidFloat(str))
+    {
+        float input = str.toFloat();
+        Serial.println("Valid float value: " + String(input));
+        if (currentMode == RotationMode)
+        {
+            motor.voltage_limit = input;
+        }
+        else if (currentMode == AngleMode)
+        {
+            motor.target = zero_position + input;
+        }
+    }
+}
+else
+{
+    Serial.println("Invalid input! Enter 'r' for Rotation Mode or 'a' for Angle Mode");
+}
+}
 
 void serialInputTask(void *pvParameters)
 {
@@ -298,28 +339,45 @@ void wifiTask(void *pvParameters)
     Serial.println(WiFi.localIP());
 
     // UDP受信
-    if (udp.listen(1234)) // python側とポートを合わせる。自由な数字で良い
+    if (udp_pic.listen(port_pic)) // python側とポートを合わせる。自由な数字で良い
     {
         Serial.print("UDP Listening on IP: ");
         Serial.println(WiFi.localIP());
-        udp.onPacket([](AsyncUDPPacket packet)
-                     {
-                         Serial.println("recv udp packet!");
-                         chararrayDiv[2] = packet.data()[0];
-                         chararrayDiv[3] = packet.data()[1];
-                         Serial.print("strtoul=");
-                         Serial.println(int(strtoul(chararrayDiv, NULL, 16))); // パケットロスをしらべる
-                         // for (int k = 0; k < Frame; k++) { //gif用
-                         for (int i = 0; i < NUMPIXELS; i++)
+        udp_pic.onPacket([](AsyncUDPPacket packet)
                          {
-                             for (int j = 0; j < 6; j++)
+                             //  Serial.println("recv udp packet!");
+                             chararrayDiv[2] = packet.data()[0];
+                             chararrayDiv[3] = packet.data()[1];
+                             //  Serial.print("strtoul=");
+                             //  Serial.println(int(strtoul(chararrayDiv, NULL, 16))); // パケットロスをしらべる
+                             // for (int k = 0; k < Frame; k++) { //gif用
+                             for (int i = 0; i < NUMPIXELS; i++)
                              {
-                                 chararrayColor[j + 2] = packet.data()[2 + i * 6 + j];
+                                 for (int j = 0; j < 6; j++)
+                                 {
+                                     chararrayColor[j + 2] = packet.data()[2 + i * 6 + j];
+                                 }
+                                 pic[int(strtoul(chararrayDiv, NULL, 16))][i] = strtoul(chararrayColor, NULL, 16);
                              }
-                             pic[int(strtoul(chararrayDiv, NULL, 16))][i] = strtoul(chararrayColor, NULL, 16);
-                         }
-                         //      }
-                     });
+                             //      }
+                         });
+    }
+    // ポート9090でリッスン
+    if (udp_motor.listen(port_motor))
+    {
+        Serial.printf("UDP Listening on IP: %s, Port: %d\n", WiFi.localIP().toString().c_str(), port_motor);
+        udp_motor.onPacket([](AsyncUDPPacket packet)
+                           {
+                               //    Serial.print("packet.data():");
+                               //    Serial.println((char *)packet.data());
+                               String str = (char *)packet.data();
+                               str.replace("\r", ""); // キャリッジリターン（\r）を削除
+                               str.replace("\n", ""); // 改行（\n）を削除
+                               str.trim();            // 入力のトリミング
+                                                      //    Serial.print("str:");
+                                                      //    Serial.println(str);
+                               handleUDPInput(str);   // シリアルタスクの処理を呼び出し
+                           });
     }
 
     while (1)
@@ -335,20 +393,27 @@ void checkRotationTask(void *pvParameters)
     {
         if (currentMode == RotationMode)
         {
-            sensor.update();
+            // sensor.update();
             float currentSensorValue = -1.0 * sensor.getAngle();
             float normalizedSensorValue = fmod(currentSensorValue, 2.0 * PI);
             if (abs(zero_position - normalizedSensorValue) <= buffer) // zeropositionを通過したかどうか
             {
-                unsigned long timeNow = micros();
-                rotTime = timeNow - timeOld;
-                timeOld = timeNow;
                 if (isZeroPositionPassed)
                 {
+                    unsigned long timeNow = micros();
+                    rotTime = timeNow - timeOld;
+                    // Serial.print("timeNow:");
+                    // Serial.print(timeNow);
+                    // Serial.print(",rotTime:");
+                    // Serial.print(rotTime);
+                    // Serial.print(",timeOld:");
+                    // Serial.println(timeOld);
+                    timeOld = timeNow;
+
                     real_vel = 2 * PI * 1000000 / rotTime;
-                    Serial.println(real_vel);
+                    // Serial.println(real_vel);
                     isZeroPositionPassed = false;
-                    numDiv = 35; //画像の傾き調整
+                    // numDiv = 35; // 画像の傾き調整
                 }
             }
             else
@@ -365,30 +430,57 @@ void ledTask(void *pvParameters)
     Serial.print("ledTask exec core: ");
     Serial.println(xPortGetCoreID()); // 動作確認用出力
     strip.begin();
+    int stateDiv = 0;
     delay(5000);
     Serial.println("clear");
+    strip.setBrightness(100); // max 255
     strip.clear();
     strip.show();
     while (1)
     {
         if (currentMode == RotationMode)
         {
-            strip.clear(); // 一つ前の点灯パターンを消さないとそのまま残る。これがないと画像が回転しているように見える
-            for (int i = 0; i < NUMPIXELS; i++)
-            {
-                strip.setPixelColor(i, pic[numDiv][i]);
-            }
-            // setした通りにLEDを光らせる
-            strip.show();
+            // strip.clear(); // 一つ前の点灯パターンを消さないとそのまま残る。これがないと画像が回転しているように見える
+            // for (int i = 0; i < NUMPIXELS; i++)
+            // {
+            //     strip.setPixelColor(i, pic[numDiv][i]);
+            // }
+            // // setした通りにLEDを光らせる
+            // strip.show();
+            // if (micros() - timeOld > rotTime / Div * (numDiv + 1))
+            // {
+            //     numDiv++;
 
-            if (micros() - timeOld > rotTime / Div * (numDiv + 1))
+            //     if (numDiv >= Div)
+            //     {
+            //         numDiv = 0;
+            //     }
+            // }
+
+            if (stateDiv == 1 && micros() - timeOld > rotTime / Div * (numDiv))
             {
+                stateDiv = 0;
+            }
+
+            if (stateDiv == 0 && micros() - timeOld < rotTime / Div * (numDiv + 1))
+            {
+                stateDiv = 1;
+
+                strip.clear();
+
+                for (int i = 0; i < NUMPIXELS; i++)
+                {
+                    strip.setPixelColor(i, pic[numDiv][i]);
+                }
+
+                strip.show();
+                // Serial.print("numDiv:");
+                // Serial.println(numDiv);
+
                 numDiv++;
 
                 if (numDiv >= Div)
-                {
                     numDiv = 0;
-                }
             }
         }
         delay(1);

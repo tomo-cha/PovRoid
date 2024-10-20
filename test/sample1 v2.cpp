@@ -69,15 +69,15 @@ float zero_position;
 /*
 LED
 */
-#include "graphics.h"
-// const int NUMPIXELS = 25 * 2;
-// const int Div = 60;
+// #include "graphics.h"
+const int NUMPIXELS = 25 * 2;
+const int Div = 60;
 #define DATAPIN 16
 #define CLOCKPIN 4
 Adafruit_DotStar strip(NUMPIXELS, DATAPIN, CLOCKPIN, DOTSTAR_BRG);
-// unsigned long pic[Div][NUMPIXELS] = {
-//     0,
-// };
+unsigned long pic[Div][NUMPIXELS] = {
+    0,
+};
 char chararrayDiv[] = "0x00";
 char chararrayColor[] = "0xffffff";
 unsigned int numDiv = 0;
@@ -232,7 +232,6 @@ void handleUDPInput(String str)
     {
         float input = str.toFloat();
         Serial.println("Valid float value: " + String(input));
-
         if (currentMode == RotationMode)
         {
             motor.voltage_limit = input;
@@ -242,10 +241,11 @@ void handleUDPInput(String str)
             motor.target = zero_position + input;
         }
     }
-    else
-    {
-        Serial.println("Invalid input! Enter 'r' for Rotation Mode or 'a' for Angle Mode");
-    }
+}
+else
+{
+    Serial.println("Invalid input! Enter 'r' for Rotation Mode or 'a' for Angle Mode");
+}
 }
 
 void serialInputTask(void *pvParameters)
@@ -345,11 +345,11 @@ void wifiTask(void *pvParameters)
         Serial.println(WiFi.localIP());
         udp_pic.onPacket([](AsyncUDPPacket packet)
                          {
-                             Serial.println("recv udp packet!");
+                             //  Serial.println("recv udp packet!");
                              chararrayDiv[2] = packet.data()[0];
                              chararrayDiv[3] = packet.data()[1];
-                             Serial.print("strtoul=");
-                             Serial.println(int(strtoul(chararrayDiv, NULL, 16))); // パケットロスをしらべる
+                             //  Serial.print("strtoul=");
+                             //  Serial.println(int(strtoul(chararrayDiv, NULL, 16))); // パケットロスをしらべる
                              // for (int k = 0; k < Frame; k++) { //gif用
                              for (int i = 0; i < NUMPIXELS; i++)
                              {
@@ -402,12 +402,12 @@ void checkRotationTask(void *pvParameters)
                 {
                     unsigned long timeNow = micros();
                     rotTime = timeNow - timeOld;
-                    Serial.print("timeNow:");
-                    Serial.print(timeNow);
-                    Serial.print(",rotTime:");
-                    Serial.print(rotTime);
-                    Serial.print(",timeOld:");
-                    Serial.println(timeOld);
+                    // Serial.print("timeNow:");
+                    // Serial.print(timeNow);
+                    // Serial.print(",rotTime:");
+                    // Serial.print(rotTime);
+                    // Serial.print(",timeOld:");
+                    // Serial.println(timeOld);
                     timeOld = timeNow;
 
                     real_vel = 2 * PI * 1000000 / rotTime;
