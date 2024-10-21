@@ -16,15 +16,15 @@ NUMTAPES = 2  # 繋げるLEDの本数
 Div = 60  # 1周の分割数
 l = [[0] * PIXELS*NUMTAPES for i in range(Div)]  # RGBを格納するためのリスト宣言・初期化
 
-Bright = 100 #輝度
-Led0Bright = 10 #中心LEDの輝度 [%]
+Bright = 15 #輝度
+Led0Bright = 50 #中心LEDの輝度 [%]
 
 
 
 #画像変換関数
-def polarConv(pic):
+def polarConv(imgOrgin):
     #画像データ読み込み
-    imgOrgin = cv2.imread(pic) 
+    # imgOrgin = cv2.imread(pic) 
 
     #画像サイズ取得
     h, w, _ = imgOrgin.shape
@@ -69,37 +69,40 @@ def polarConv(pic):
             imgPolar.putpixel((i,j), (rP, gP, bP))
     # file.write('};')
 
-count = 0
 # Gifファイルを読み込む
 while True:
-    # if(count % 4 == 0):
-    #     pic = "python/hands/1.png"
-    # elif(count % 4 == 1):
-    #     pic = "python/hands/2.png"
-    # elif(count % 4 == 2):
-    #     pic = "python/hands/3.png"
-    # elif(count % 4 == 3):
-    #     pic = "python/hands/2.png"
-    pic = "python/0.png"
-    #変換
-    polarConv(pic)
+    count = 0
+    gif = cv2.VideoCapture("/Users/takaharatomotakeshi/workspace/nakanishi/PovRoid/python/ufo_black_bg.gif")
 
-    # udp設定
-    sendAddr = ('192.168.11.33', 1234)  # 送信先(esp32)のipアドレス, ポート番号は1234で統一する
-    udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    while True:
+        is_success, pic = gif.read()
 
-    for k in range(3): #パケットロスがあるので3回送る
-        for j in range(0, Div):
-            data = '%02X' % j
-            for i in range(0, PIXELS):
-                data+=l[j][i]
-            for i in range(0, PIXELS):
-                data+=l[int((j+Div/2-1)%Div)][PIXELS-1-i]
-                if i == PIXELS-1:
-                    udp.sendto(data.encode('utf-8'), sendAddr)
-                    time.sleep(0.001) #sleepがないとパケットロスが激増する
-                    print(data.encode('utf-8'))
-    count += 1
+        # ファイルが読み込めなくなったら終了
+        if not is_success:
+            break
+
+        # print(pic)
+        #変換
+        if(count%15==0): #12枚ごとに表示する
+            # 変換
+            polarConv(pic)
+            # udp設定
+            sendAddr = ('192.168.11.33', 1234)  # 送信先(esp32)のipアドレス, ポート番号は1234で統一する
+            udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+            for k in range(3): #パケットロスがあるので3回送る
+                for j in range(0, Div):
+                    data = '%02X' % j
+                    for i in range(0, PIXELS):
+                        data+=l[j][i]
+                    for i in range(0, PIXELS):
+                        data+=l[int((j+Div/2-1)%Div)][PIXELS-1-i]
+                        if i == PIXELS-1:
+                            udp.sendto(data.encode('utf-8'), sendAddr)
+                            time.sleep(0.002) #sleepがないとパケットロスが激増する
+                            # print(data.encode('utf-8'))
+            print(count)
+        count += 1
 
 udp.close()
 

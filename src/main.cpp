@@ -433,7 +433,7 @@ void ledTask(void *pvParameters)
     Serial.print("ledTask exec core: ");
     Serial.println(xPortGetCoreID()); // 動作確認用出力
     strip.begin();
-    int stateDiv = 0;
+    int stateDiv = 1;
     delay(5000);
     Serial.println("clear");
     strip.setBrightness(100); // max 255
@@ -442,24 +442,7 @@ void ledTask(void *pvParameters)
     while (1)
     {
         if (currentMode == RotationMode)
-        {
-            // strip.clear(); // 一つ前の点灯パターンを消さないとそのまま残る。これがないと画像が回転しているように見える
-            // for (int i = 0; i < NUMPIXELS; i++)
-            // {
-            //     strip.setPixelColor(i, pic[numDiv][i]);
-            // }
-            // // setした通りにLEDを光らせる
-            // strip.show();
-            // if (micros() - timeOld > rotTime / Div * (numDiv + 1))
-            // {
-            //     numDiv++;
-
-            //     if (numDiv >= Div)
-            //     {
-            //         numDiv = 0;
-            //     }
-            // }
-
+        {   
             if (stateDiv == 1 && micros() - timeOld > rotTime / Div * (numDiv))
             {
                 stateDiv = 0;
@@ -477,8 +460,6 @@ void ledTask(void *pvParameters)
                 }
 
                 strip.show();
-                // Serial.print("numDiv:");
-                // Serial.println(numDiv);
 
                 numDiv++;
 
