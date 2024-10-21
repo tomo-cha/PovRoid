@@ -232,20 +232,24 @@ void handleUDPInput(String str)
     {
         float input = str.toFloat();
         Serial.println("Valid float value: " + String(input));
+
         if (currentMode == RotationMode)
         {
-            motor.voltage_limit = input;
+            if (input < 5.0)
+            {
+                motor.voltage_limit = input;
+            }
         }
         else if (currentMode == AngleMode)
         {
             motor.target = zero_position + input;
         }
     }
-}
-else
-{
-    Serial.println("Invalid input! Enter 'r' for Rotation Mode or 'a' for Angle Mode");
-}
+
+    else
+    {
+        Serial.println("Invalid input! Enter 'r' for Rotation Mode or 'a' for Angle Mode");
+    }
 }
 
 void serialInputTask(void *pvParameters)
@@ -326,7 +330,6 @@ void wifiTask(void *pvParameters)
         Serial.println("Failed to configure!");
     }
     WiFi.begin(ssid, password);
-
     while (WiFi.status() != WL_CONNECTED)
     {
         delay(500);
@@ -402,12 +405,12 @@ void checkRotationTask(void *pvParameters)
                 {
                     unsigned long timeNow = micros();
                     rotTime = timeNow - timeOld;
-                    // Serial.print("timeNow:");
-                    // Serial.print(timeNow);
-                    // Serial.print(",rotTime:");
-                    // Serial.print(rotTime);
-                    // Serial.print(",timeOld:");
-                    // Serial.println(timeOld);
+                    Serial.print("timeNow:");
+                    Serial.print(timeNow);
+                    Serial.print(",rotTime:");
+                    Serial.print(rotTime);
+                    Serial.print(",timeOld:");
+                    Serial.println(timeOld);
                     timeOld = timeNow;
 
                     real_vel = 2 * PI * 1000000 / rotTime;
