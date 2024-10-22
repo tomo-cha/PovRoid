@@ -5,5 +5,6 @@
 .vscode/ipch
 src/security.h
 .venv
+.wave_venv
 __pycache__
 python
