@@ -16,6 +16,14 @@ constexpr bool kMotorDebug = true;
 constexpr bool kMotorDebug = false;
 #endif
 
+// #define DEBUG_OTHER
+
+#ifdef DEBUG_OTHER
+constexpr bool kOtherDebug = true;
+#else
+constexpr bool kOtherDebug = false;
+#endif
+
 /*
 動作モードの切り替え
 */
@@ -210,47 +218,6 @@ void motorControlTask(void *pvParameters)
         // }
     }
 }
-void handleUDPInput(String str)
-{
-    if (str == "r")
-    {
-        setMode(RotationMode);
-        motor.controller = MotionControlType::velocity;
-        motor.target = 100;
-        motor.voltage_limit = 1;
-        Serial.println("Switched to Rotation Mode");
-    }
-    else if (str == "a")
-    {
-        setMode(AngleMode);
-        motor.controller = MotionControlType::angle;
-        motor.target = zero_position;
-        motor.voltage_limit = 1;
-        Serial.println("Switched to Angle Mode");
-    }
-    else if (isValidFloat(str))
-    {
-        float input = str.toFloat();
-        Serial.println("Valid float value: " + String(input));
-
-        if (currentMode == RotationMode)
-        {
-            if (input < 5.0)
-            {
-                motor.voltage_limit = input;
-            }
-        }
-        else if (currentMode == AngleMode)
-        {
-            motor.target = zero_position + input;
-        }
-    }
-
-    else
-    {
-        Serial.println("Invalid input! Enter 'r' for Rotation Mode or 'a' for Angle Mode");
-    }
-}
 
 void serialInputTask(void *pvParameters)
 {
@@ -271,54 +238,63 @@ void serialInputTask(void *pvParameters)
         }
         if (dataReceived)
         {
-            // モード切り替え用の入力 'r' か 'a' を確認
-            if (str == "r")
-            {
-                setMode(RotationMode);
-                // motor.controller = MotionControlType::velocity_openloop;
-                // motor.target = 10;
-                // motor.voltage_limit = 4;
-                motor.controller = MotionControlType::velocity;
-                motor.target = 100;
-                motor.voltage_limit = 1;
-                Serial.println("Switched to Rotation Mode");
-            }
-            else if (str == "a")
-            {
-                setMode(AngleMode);
-                motor.controller = MotionControlType::angle;
-                motor.target = zero_position;
-                motor.voltage_limit = 1;
-                Serial.println("Switched to Angle Mode");
-            }
-            // 文字列が数字のみを含むかどうかを確認
-            else if (isValidFloat(str))
-            {
-                float input = str.toFloat();
-                Serial.println("Valid float value: " + String(input));
-
-                if (currentMode == RotationMode)
-                {
-                    // motor.target = input;
-                    motor.voltage_limit = input;
-                }
-                else if (currentMode == AngleMode)
-                {
-                    motor.target = zero_position + input;
-                }
-            }
-            else
-            {
-                Serial.println("Invalid input! Enter 'r' for Rotation Mode or 'a' for Angle Mode");
-            }
-            // 次の入力のためにリセット
-            str = "";
-            dataReceived = false;
         }
         delay(1);
     }
 }
+void handleUDPInput(String str)
+{
+    if (str == "r")
+    {
+        setMode(RotationMode);
+        motor.controller = MotionControlType::velocity;
+        motor.target = 100;
+        motor.voltage_limit = 1;
+        if (kOtherDebug)
+        {
+            Serial.println("Switched to Rotation Mode");
+        }
+    }
+    else if (str == "a")
+    {
+        setMode(AngleMode);
+        motor.controller = MotionControlType::angle;
+        motor.target = zero_position;
+        motor.voltage_limit = 1;
+        if (kOtherDebug)
+        {
+            Serial.println("Switched to Angle Mode");
+        }
+    }
+    else if (isValidFloat(str))
+    {
+        float input = str.toFloat();
+        if (kOtherDebug)
+        {
+            Serial.println("Valid float value: " + String(input));
+        }
 
+        if (currentMode == RotationMode)
+        {
+            if (input < 5.0)
+            {
+                motor.voltage_limit = input;
+            }
+        }
+        else if (currentMode == AngleMode)
+        {
+            motor.target = zero_position + input;
+        }
+    }
+
+    else
+    {
+        if (kOtherDebug)
+        {
+            Serial.println("Invalid input! Enter 'r' for Rotation Mode or 'a' for Angle Mode");
+        }
+    }
+}
 void wifiTask(void *pvParameters)
 {
     Serial.print("wifiTask exec core: ");
@@ -341,30 +317,6 @@ void wifiTask(void *pvParameters)
     Serial.println("IP address: ");
     Serial.println(WiFi.localIP());
 
-    // UDP受信
-    if (udp_pic.listen(port_pic)) // python側とポートを合わせる。自由な数字で良い
-    {
-        Serial.print("UDP Listening on IP: ");
-        Serial.println(WiFi.localIP());
-        udp_pic.onPacket([](AsyncUDPPacket packet)
-                         {
-                             //  Serial.println("recv udp packet!");
-                             chararrayDiv[2] = packet.data()[0];
-                             chararrayDiv[3] = packet.data()[1];
-                             //  Serial.print("strtoul=");
-                             //  Serial.println(int(strtoul(chararrayDiv, NULL, 16))); // パケットロスをしらべる
-                             // for (int k = 0; k < Frame; k++) { //gif用
-                             for (int i = 0; i < NUMPIXELS; i++)
-                             {
-                                 for (int j = 0; j < 6; j++)
-                                 {
-                                     chararrayColor[j + 2] = packet.data()[2 + i * 6 + j];
-                                 }
-                                 pic[int(strtoul(chararrayDiv, NULL, 16))][i] = strtoul(chararrayColor, NULL, 16);
-                             }
-                             //      }
-                         });
-    }
     // ポート9090でリッスン
     if (udp_motor.listen(port_motor))
     {
@@ -405,16 +357,22 @@ void checkRotationTask(void *pvParameters)
                 {
                     unsigned long timeNow = micros();
                     rotTime = timeNow - timeOld;
-                    Serial.print("timeNow:");
-                    Serial.print(timeNow);
-                    Serial.print(",rotTime:");
-                    Serial.print(rotTime);
-                    Serial.print(",timeOld:");
-                    Serial.println(timeOld);
+                    if (kOtherDebug)
+                    {
+                        Serial.print("timeNow:");
+                        Serial.print(timeNow);
+                        Serial.print(",rotTime:");
+                        Serial.print(rotTime);
+                        Serial.print(",timeOld:");
+                        Serial.println(timeOld);
+                    }
                     timeOld = timeNow;
 
                     real_vel = 2 * PI * 1000000 / rotTime;
-                    // Serial.println(real_vel);
+                    if (kOtherDebug)
+                    {
+                        // Serial.println(real_vel);
+                    }
                     isZeroPositionPassed = false;
                     // numDiv = 35; // 画像の傾き調整
                 }
@@ -477,8 +435,11 @@ void ledTask(void *pvParameters)
                 }
 
                 strip.show();
-                // Serial.print("numDiv:");
-                // Serial.println(numDiv);
+                if (kOtherDebug)
+                {
+                    // Serial.print("numDiv:");
+                    // Serial.println(numDiv);
+                }
 
                 numDiv++;
 
