@@ -5,6 +5,9 @@
 // and color of LEDs, it's reasonably safe to power a couple meters off
 // the Arduino's 5V pin.  DON'T try that with other code!
 
+/*
+LEDが光るかのテスト
+*/
 #include <Adafruit_DotStar.h>
 // Because conditional #includes don't work w/Arduino sketches...
 #include <SPI.h> // COMMENT OUT THIS LINE FOR GEMMA OR TRINKET

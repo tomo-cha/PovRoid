@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+# 画像一枚をudpで送信する
+
 import socket
 import time
 import cv2
