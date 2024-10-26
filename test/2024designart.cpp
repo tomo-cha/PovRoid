@@ -492,7 +492,7 @@ void ledTask(void *pvParameters)
             {
                 stateDiv = 1;
 
-                strip.clear();
+                // strip.clear();
 
                 for (int i = 0; i < NUMPIXELS; i++)
                 {
