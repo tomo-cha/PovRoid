@@ -65,7 +65,7 @@ def polarConv(imgOrgin):
 while True:
     count = 0
     #ここを変える
-    gif = cv2.VideoCapture("python/10.png")
+    gif = cv2.VideoCapture("python/11.png")
 
     while True:
         is_success, pic = gif.read()
@@ -80,7 +80,7 @@ while True:
             # 変換
             polarConv(pic)
             # udp設定
-            sendAddr = ('192.168.11.31', 1234)  # 送信先(esp32)のipアドレス, ポート番号は1234で統一する
+            sendAddr = ('192.168.12.72', 1234)  # 送信先(esp32)のipアドレス, ポート番号は1234で統一する
             udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
             for k in range(3): #パケットロスがあるので3回送る

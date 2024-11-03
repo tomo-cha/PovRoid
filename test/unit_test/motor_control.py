@@ -2,9 +2,9 @@ import socket
 
 # udp設定: 送信先アドレスを配列にまとめる
 sendAddrs = [
-    ('192.168.11.31', 9090),  # 送信先(esp32)のipアドレス1
-    ('192.168.11.32', 9090),  # 送信先(esp32)のipアドレス2
-    ('192.168.11.33', 9090)   # 送信先(esp32)のipアドレス3
+    ('192.168.12.71', 9090),  # 送信先(esp32)のipアドレス1
+    ('192.168.12.72', 9090),  # 送信先(esp32)のipアドレス2
+    ('192.168.12.73', 9090)   # 送信先(esp32)のipアドレス3
 ]
 
 udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -12,7 +12,7 @@ udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 try:
     while True:
         # Input both the address choice and the data in a single line
-        print("Enter the address (1 for 192.168.11.31, 2 for 192.168.11.32, 3 for 192.168.11.33) and the data to send (separated by a space):")
+        print("Enter the address (1 for 192.168.12.71, 2 for 192.168.12.72, 3 for 192.168.12.73) and the data to send (separated by a space):")
         user_input = input().strip().split() #https://qiita.com/YuDachi/items/c9e7305b299a560e4473
 
         if len(user_input) != 2 or user_input[0] not in ['1', '2', '3']:

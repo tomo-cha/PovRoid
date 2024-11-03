@@ -1,6 +1,7 @@
-# -*- coding: utf-8 -*-
-
-# gifをudpで送信する. 67行目によってmp4, mov, usb camera等に変更可能
+import sys
+import numpy as np
+# import cv2
+import NDIlib as ndi
 
 import socket
 import time
@@ -10,7 +11,6 @@ import math
 import sys
 from PIL import Image
 
-args = sys.argv
 
 # 配列設定
 PIXELS = 25  # LED1本あたりのセル数
@@ -20,8 +20,6 @@ l = [[0] * PIXELS*NUMTAPES for i in range(Div)]  # RGBを格納するための�
 
 Bright = 15 #輝度
 Led0Bright = 50 #中心LEDの輝度 [%]
-
-
 
 #画像変換関数
 def polarConv(imgOrgin):
@@ -45,6 +43,7 @@ def polarConv(imgOrgin):
 
     #極座標変換
     for j in range(0, Div):
+        # file.write('\t{')
         for i in range(0, hC+1):
             #座標色取得
             #参考：http://peaceandhilightandpython.hatenablog.com/entry/2016/01/03/151320
@@ -57,30 +56,58 @@ def polarConv(imgOrgin):
             bP = int(imgRedu[hC + math.ceil(i * math.cos(2*math.pi/Div*j)),
                          wC - math.ceil(i * math.sin(2*math.pi/Div*j)), 0]
                      * ((100 - Led0Bright) / PIXELS * i + Led0Bright) / 100 * Bright /100)
-        
+            
 
             l[j][hC-i] = '%02X%02X%02X' % (gP, rP, bP)
+                
+            imgPolar.putpixel((i,j), (rP, gP, bP))
 
-# Gifファイルを読み込む
-while True:
-    count = 0
-    #ここを変える
-    gif = cv2.VideoCapture("python/ufo_black_bg.gif")
+
+def main():
+
+    if not ndi.initialize():
+        return 0
+
+    ndi_find = ndi.find_create_v2()
+
+    if ndi_find is None:
+        return 0
+
+    sources = []
+    while not len(sources) > 0:
+        print('Looking for sources ...')
+        ndi.find_wait_for_sources(ndi_find, 1000)
+        sources = ndi.find_get_current_sources(ndi_find)
+
+    ndi_recv_create = ndi.RecvCreateV3()
+    ndi_recv_create.color_format = ndi.RECV_COLOR_FORMAT_BGRX_BGRA
+
+    ndi_recv = ndi.recv_create_v3(ndi_recv_create)
+
+    if ndi_recv is None:
+        return 0
+
+    target_ndi=""
+
+    for s in sources:
+        if(s.ndi_name == "MSI (D1)"):
+            target_ndi = s.ndi_name
+            ndi.recv_connect(ndi_recv, s)
+
+    ndi.find_destroy(ndi_find)
+
+    cv2.startWindowThread()
 
     while True:
-        is_success, pic = gif.read()
+        t, v, _, _ = ndi.recv_capture_v2(ndi_recv, 5000)
 
-        # ファイルが読み込めなくなったら終了
-        if not is_success:
-            break
-
-        # print(pic)
-        #変換
-        if(count%15==0): #12枚ごとに表示する
-            # 変換
-            polarConv(pic)
+        if t == ndi.FRAME_TYPE_VIDEO:
+            print(f"from:{target_ndi} ")
+            print('Video data received (%dx%d).' % (v.xres, v.yres))
+            frame = np.copy(v.data)
+            polarConv(pic) #画像の極座標変換
             # udp設定
-            sendAddr = ('192.168.12.73', 1234)  # 送信先(esp32)のipアドレス, ポート番号は1234で統一する
+            sendAddr = ('192.168.11.33', 1234)  # 送信先(esp32)のipアドレス, ポート番号は1234で統一する
             udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
             for k in range(3): #パケットロスがあるので3回送る
@@ -93,8 +120,19 @@ while True:
                         if i == PIXELS-1:
                             udp.sendto(data.encode('utf-8'), sendAddr)
                             time.sleep(0.002) #sleepがないとパケットロスが激増する
-                            print(data.encode('utf-8'))
-            # print(count)
-        count += 1
+                            # print(data.encode('utf-8'))
+            # cv2.imshow('ndi image', frame)
+            ndi.recv_free_video_v2(ndi_recv, v)
 
-udp.close()
+        if cv2.waitKey(1) & 0xff == 27:
+            break
+
+    ndi.recv_destroy(ndi_recv)
+    ndi.destroy()
+    cv2.destroyAllWindows()
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

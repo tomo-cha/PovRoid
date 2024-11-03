@@ -19,6 +19,7 @@
         "bitset": "cpp",
         "algorithm": "cpp",
         "*.tcc": "cpp",
-        "system_error": "cpp"
+        "system_error": "cpp",
+        "sstream": "cpp"
     }
 }

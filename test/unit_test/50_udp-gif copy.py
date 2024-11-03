@@ -76,11 +76,11 @@ while True:
 
         # print(pic)
         #変換
-        if(count%15==0): #12枚ごとに表示する
+        if(count%1==0): #12枚ごとに表示する
             # 変換
             polarConv(pic)
             # udp設定
-            sendAddr = ('192.168.12.73', 1234)  # 送信先(esp32)のipアドレス, ポート番号は1234で統一する
+            sendAddr = ('192.168.12.71', 1234)  # 送信先(esp32)のipアドレス, ポート番号は1234で統一する
             udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
             for k in range(3): #パケットロスがあるので3回送る

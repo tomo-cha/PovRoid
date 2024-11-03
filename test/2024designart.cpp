@@ -72,8 +72,8 @@ LED
 // #include "graphics.h"
 const int NUMPIXELS = 25 * 2;
 const int Div = 60;
-#define DATAPIN 16
-#define CLOCKPIN 4
+#define DATAPIN 13
+#define CLOCKPIN 14
 Adafruit_DotStar strip(NUMPIXELS, DATAPIN, CLOCKPIN, DOTSTAR_BRG);
 unsigned long pic[Div][NUMPIXELS] = {
     0,
@@ -538,7 +538,7 @@ void setup()
         NULL,              // 作成タスクのパラメータのポインタ
         1,                 // 作成タスクの優先順位(0:低 - 25:高)
         &taskHandle[1],    // 作成タスクのHandleへのポインタ
-        1                  // 利用するCPUコア(0-1)
+        0                  // 利用するCPUコア(0-1)
     );
     xTaskCreatePinnedToCore(
         wifiTask,       // タスク関数へのポインタ。無限ループで終了しないよう関数を指定します
