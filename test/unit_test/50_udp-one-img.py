@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-# 画像一枚をudpで送信する
-
 import socket
 import time
 import cv2
@@ -61,7 +59,7 @@ def polarConv(pic):
             
             # file.write('0x%02X%02X%02X' % (rP,gP,bP))
 
-            l[j][hC-i] = '%02X%02X%02X' % (gP, rP, bP)
+            l[j][hC-i] = '%02X%02X%02X' % (rP, gP, bP)
             
             # if i == hC:
             #     file.write('},\n')
@@ -71,23 +69,50 @@ def polarConv(pic):
             imgPolar.putpixel((i,j), (rP, gP, bP))
     # file.write('};')
 
-count = 0
+count = 10
+n = 40
+pic_num = 0
+dir = 1
+appear = True
+countdown = False
 # Gifファイルを読み込む
 while True:
-    # if(count % 4 == 0):
-    #     pic = "python/hands/1.png"
-    # elif(count % 4 == 1):
-    #     pic = "python/hands/2.png"
-    # elif(count % 4 == 2):
-    #     pic = "python/hands/3.png"
-    # elif(count % 4 == 3):
-    #     pic = "python/hands/2.png"
-    pic = "python/0.png"
+    print(f"count: {count}")
+    print(f"pic_num: {pic_num}")
+    print(f"countdown: {countdown}")
+    print(f"appear: {appear}")
+
+    
+    pic = f"python/circle_png/{pic_num}.png"
+    # count += 1
+    if(appear):
+        pic_num += 1*dir
+
+    if(pic_num >= n):
+        # pic_num = n
+        dir = -1
+        print("minus")
+    if(pic_num < 0):
+        pic_num = 0
+        dir = 1
+        countdown = True
+        print("plus")
+
+
+    if(countdown):
+        count -= 1
+        appear = False
+        if(count < 0):
+            countdown = False
+            appear = True
+            count = 10
+        
+
     #変換
     polarConv(pic)
 
     # udp設定
-    sendAddr = ('192.168.11.33', 1234)  # 送信先(esp32)のipアドレス, ポート番号は1234で統一する
+    sendAddr = ('192.168.12.71', 1234)  # 送信先(esp32)のipアドレス, ポート番号は1234で統一する
     udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     for k in range(3): #パケットロスがあるので3回送る
@@ -100,8 +125,7 @@ while True:
                 if i == PIXELS-1:
                     udp.sendto(data.encode('utf-8'), sendAddr)
                     time.sleep(0.001) #sleepがないとパケットロスが激増する
-                    print(data.encode('utf-8'))
-    count += 1
+                    # print(data.encode('utf-8'))
 
 udp.close()
 
