@@ -24,7 +24,7 @@ enum ControlMode
     RotationMode,
     AngleMode
 };
-ControlMode currentMode = AngleMode; // 起動時のモード
+ControlMode currentMode = RotationMode; // 起動時のモード
 // モードを切り替える関数
 void setMode(ControlMode mode)
 {
@@ -70,10 +70,10 @@ float zero_position;
 LED
 */
 // #include "graphics.h"
-const int NUMPIXELS = 25 * 1;
+const int NUMPIXELS = 25 * 2;
 const int Div = 60;
-#define DATAPIN 16
-#define CLOCKPIN 4
+#define DATAPIN 13
+#define CLOCKPIN 14
 Adafruit_DotStar strip(NUMPIXELS, DATAPIN, CLOCKPIN, DOTSTAR_BRG);
 unsigned long pic[Div][NUMPIXELS] = {
     0,
@@ -187,6 +187,33 @@ void motorControlTask(void *pvParameters)
         if (currentMode == RotationMode)
         {
             motor.loopFOC();
+            // sensor.update();
+            float currentSensorValue = -1.0 * sensor.getAngle();
+            float normalizedSensorValue = fmod(currentSensorValue, 2.0 * PI);
+            if (abs(zero_position - normalizedSensorValue) <= buffer) // zeropositionを通過したかどうか
+            {
+                if (isZeroPositionPassed)
+                {
+                    unsigned long timeNow = micros();
+                    rotTime = timeNow - timeOld;
+                    // Serial.print("timeNow:");
+                    // Serial.print(timeNow);
+                    // Serial.print(",rotTime:");
+                    // Serial.print(rotTime);
+                    // Serial.print(",timeOld:");
+                    // Serial.println(timeOld);
+                    timeOld = timeNow;
+
+                    real_vel = 2 * PI * 1000000 / rotTime;
+                    // Serial.println(real_vel);
+                    isZeroPositionPassed = false;
+                    // numDiv = 35; // 画像の傾き調整
+                }
+            }
+            else
+            {
+                isZeroPositionPassed = true;
+            }
         }
         else if (currentMode == AngleMode)
         {
@@ -232,20 +259,15 @@ void handleUDPInput(String str)
     {
         float input = str.toFloat();
         Serial.println("Valid float value: " + String(input));
-
         if (currentMode == RotationMode)
         {
-            if (input < 5.0)
-            {
-                motor.voltage_limit = input;
-            }
+            motor.voltage_limit = input;
         }
         else if (currentMode == AngleMode)
         {
             motor.target = zero_position + input;
         }
     }
-
     else
     {
         Serial.println("Invalid input! Enter 'r' for Rotation Mode or 'a' for Angle Mode");
@@ -330,6 +352,7 @@ void wifiTask(void *pvParameters)
         Serial.println("Failed to configure!");
     }
     WiFi.begin(ssid, password);
+
     while (WiFi.status() != WL_CONNECTED)
     {
         delay(500);
@@ -405,12 +428,12 @@ void checkRotationTask(void *pvParameters)
                 {
                     unsigned long timeNow = micros();
                     rotTime = timeNow - timeOld;
-                    Serial.print("timeNow:");
-                    Serial.print(timeNow);
-                    Serial.print(",rotTime:");
-                    Serial.print(rotTime);
-                    Serial.print(",timeOld:");
-                    Serial.println(timeOld);
+                    // Serial.print("timeNow:");
+                    // Serial.print(timeNow);
+                    // Serial.print(",rotTime:");
+                    // Serial.print(rotTime);
+                    // Serial.print(",timeOld:");
+                    // Serial.println(timeOld);
                     timeOld = timeNow;
 
                     real_vel = 2 * PI * 1000000 / rotTime;
@@ -433,7 +456,15 @@ void ledTask(void *pvParameters)
     Serial.print("ledTask exec core: ");
     Serial.println(xPortGetCoreID()); // 動作確認用出力
     strip.begin();
-    int stateDiv = 1;
+    int stateDiv = 0;
+    const int n = 24;
+    bool appear = true;
+    const int count_num = 10;
+    int count = count_num;
+    int dir = 1;
+    bool countdown = false;
+    int i = 0;
+    int old_time = 0;
     delay(5000);
     Serial.println("clear");
     strip.setBrightness(100); // max 255
@@ -442,33 +473,97 @@ void ledTask(void *pvParameters)
     while (1)
     {
         if (currentMode == RotationMode)
-        {   
-            if (stateDiv == 1 && micros() - timeOld > rotTime / Div * (numDiv))
+        {
+            if (millis() - old_time > 250)
             {
-                stateDiv = 0;
-            }
-
-            if (stateDiv == 0 && micros() - timeOld < rotTime / Div * (numDiv + 1))
-            {
-                stateDiv = 1;
-
                 strip.clear();
 
-                for (int i = 0; i < NUMPIXELS; i++)
+                // for (int i = 0; i < NUMPIXELS; i++)
+                // {
+                //     strip.setPixelColor(i, pic[numDiv][i]);
+                // }
+                if (appear)
                 {
-                    strip.setPixelColor(i, pic[numDiv][i]);
+                    strip.setPixelColor(i + n, 0x0000FF);
+                    strip.setPixelColor(NUMPIXELS - n - 1 - i, 0x0000FF);
+                    i += 1 * dir;
                 }
 
                 strip.show();
+                Serial.print("i: ");
+                Serial.println(i);
 
-                numDiv++;
+                if (i > n)
+                {
+                    i = n;
+                    dir = -1;
+                    Serial.println("minus");
+                }
+                if (i < 0)
+                {
+                    i = 0;
+                    dir = 1;
+                    countdown = true;
+                    Serial.println("plus");
+                }
 
-                if (numDiv >= Div)
-                    numDiv = 0;
+                if (countdown)
+                {
+                    count -= 1;
+                    appear = false;
+                    if (count < 0)
+                    {
+                        countdown = false;
+                        appear = true;
+                        count = count_num;
+                    }
+                }
+                old_time = millis();
             }
+            // strip.clear(); // 一つ前の点灯パターンを消さないとそのまま残る。これがないと画像が回転しているように見える
+            // for (int i = 0; i < NUMPIXELS; i++)
+            // {
+            //     strip.setPixelColor(i, pic[numDiv][i]);
+            // }
+            // // setした通りにLEDを光らせる
+            // strip.show();
+            // if (micros() - timeOld > rotTime / Div * (numDiv + 1))
+            // {
+            //     numDiv++;
+
+            //     if (numDiv >= Div)
+            //     {
+            //         numDiv = 0;
+            //     }
+            // }
+
+            // if (stateDiv == 1 && micros() - timeOld > rotTime / Div * (numDiv))
+            // {
+            //     stateDiv = 0;
+            // }
+
+            // if (stateDiv == 0 && micros() - timeOld < rotTime / Div * (numDiv + 1))
+            // {
+            //     stateDiv = 1;
+
+            //     strip.clear();
+
+            //     for (int i = 0; i < NUMPIXELS; i++)
+            //     {
+            //         strip.setPixelColor(i, pic[numDiv][i]);
+            //     }
+
+            //     strip.show();
+            //     // Serial.print("numDiv:");
+            //     // Serial.println(numDiv);
+
+            //     numDiv++;
+
+            //     if (numDiv >= Div)
+            //         numDiv = 0;
         }
-        delay(1);
     }
+    delay(1);
 }
 
 /*
@@ -496,7 +591,7 @@ void setup()
         NULL,              // 作成タスクのパラメータのポインタ
         1,                 // 作成タスクの優先順位(0:低 - 25:高)
         &taskHandle[1],    // 作成タスクのHandleへのポインタ
-        1                  // 利用するCPUコア(0-1)
+        0                  // 利用するCPUコア(0-1)
     );
     xTaskCreatePinnedToCore(
         wifiTask,       // タスク関数へのポインタ。無限ループで終了しないよう関数を指定します
@@ -507,15 +602,15 @@ void setup()
         &taskHandle[2], // 作成タスクのHandleへのポインタ
         0               // 利用するCPUコア(0-1)
     );
-    xTaskCreatePinnedToCore(
-        checkRotationTask,   // タスク関数へのポインタ。無限ループで終了しないよう関数を指定します
-        "checkRotationTask", // タスクの説明用名前。重複しても動きますがデバッグ用途。最大16文字まで
-        4096,                // スタックサイズ(Byte)
-        NULL,                // 作成タスクのパラメータのポインタ
-        1,                   // 作成タスクの優先順位(0:低 - 25:高)
-        &taskHandle[3],      // 作成タスクのHandleへのポインタ
-        0                    // 利用するCPUコア(0-1)
-    );
+    // xTaskCreatePinnedToCore(
+    //     checkRotationTask,   // タスク関数へのポインタ。無限ループで終了しないよう関数を指定します
+    //     "checkRotationTask", // タスクの説明用名前。重複しても動きますがデバッグ用途。最大16文字まで
+    //     4096,                // スタックサイズ(Byte)
+    //     NULL,                // 作成タスクのパラメータのポインタ
+    //     1,                   // 作成タスクの優先順位(0:低 - 25:高)
+    //     &taskHandle[3],      // 作成タスクのHandleへのポインタ
+    //     0                    // 利用するCPUコア(0-1)
+    // );
 
     xTaskCreatePinnedToCore(
         ledTask,
