@@ -4,7 +4,7 @@ import adafruit_dotstar as dotstar
 import serial
 
 # シリアルポートの設定
-port = '/dev/ttyUSB0' # Macの場合、ポート名は'/dev/tty.usbserial-xxxxx'など
+port = '/dev/ttyUSB1' # Macの場合、ポート名は'/dev/tty.usbserial-xxxxx'など
 baudrate = 115200  # 通信速度
 # シリアルポートのオープン
 ser = serial.Serial(port, baudrate, timeout=0)
@@ -15,13 +15,6 @@ order     = dotstar.BGR  # Might need GRB instead for older DotStar LEDs
 strip     = dotstar.DotStar(board.SCK, board.MOSI, numpixels,
               brightness=0.25, auto_write=False, pixel_order=order)
 
-
-rot_time = 0.082881
-time_old = 0.000000
-div = 60
-num_div = 0
-state_div = 0
-count = 0
 #11.pngミクの変換データ
 pic = [
 	[0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x252828, 0x54595D, 0x4F5458, 0x383B3E, 0x2B2E31, 0x393C3F, 0x4C4F54, 0x4A4F54, 0x45474B, 0x92ADA8, 0xDDDDDD, 0x000000, 0x000000, 0xA2968D, 0x3B5254, 0x2B2830, 0xA4ACB5, 0x6A6F78, 0xABB1B9, 0x43484F, 0x626267, 0x000000, 0x7D838B, 0x5F646C, 0xAAB1BB, 0x989B94, 0x2C3E40, 0x557A7B, 0xDEE1E4, 0xA3A19F, 0xDAC4B9, 0xFFFDEE, 0xFCFAEC, 0x797E77, 0x72B7B5, 0x9FD1D0, 0x000000],
@@ -87,10 +80,13 @@ pic = [
 ]
 
 
-# for debug
-# for j in range(div):
-#     for i in range(numpixels):
-#         print(pic[j][i])
+rot_time = 0.082881
+time_old = 0.000000
+div = 60
+num_div = 0
+state_div = 0
+update_cycle = 10
+count = 0
 tmp = 0.000000
 
 '''
@@ -108,19 +104,8 @@ while True:                  # Loop forever
 		parts = recv.split()  # スペースで分割
 		if len(parts) == 2:
 			flag, value = parts[0], parts[1]
-			if flag == '0':
-				num_div = 0
-			elif flag == '1':
-				num_div = 15
-			elif flag == '2':
-				num_div = 30
-			elif flag == '3':
-				num_div = 45
-			else:
-				print(f"Unexpected flag value: {flag}")
-				continue  # 想定外のフラグならスキップ
-			
-			rot_time = float(value) * 0.000001 * 4 #4半周ごとならx4で1周  # 後半の値を rot_time に格納
+			num_div = int(flag) * int(div / update_cycle)
+			rot_time = float(value) * 0.000001 * update_cycle #4半周ごとならx4で1周  # 後半の値を rot_time に格納
 			# print(rot_time)
 	
 
