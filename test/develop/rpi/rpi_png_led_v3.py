@@ -104,14 +104,24 @@ while True:                  # Loop forever
 
 	recv = ser.readline().decode('utf-8').strip()
 	if recv:
-		rot_time = float(recv)*0.000001
-		count += 1
-		if(time.process_time() - tmp > 1):
-			print(f"count: {count}")
-			count = 0
-			tmp = time.process_time()
-		# print(rot_time)
-		num_div = 0
+		# print(recv)
+		parts = recv.split()  # スペースで分割
+		if len(parts) == 2:
+			flag, value = parts[0], parts[1]
+			if flag == '0':
+				num_div = 0
+			elif flag == '1':
+				num_div = 15
+			elif flag == '2':
+				num_div = 30
+			elif flag == '3':
+				num_div = 45
+			else:
+				print(f"Unexpected flag value: {flag}")
+				continue  # 想定外のフラグならスキップ
+			
+			rot_time = float(value) * 0.000001 * 4 #4半周ごとならx4で1周  # 後半の値を rot_time に格納
+			# print(rot_time)
 	
 
 	if(time.process_time() - time_old > rot_time / div):
