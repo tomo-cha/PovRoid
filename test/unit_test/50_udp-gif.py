@@ -80,7 +80,7 @@ while True:
             # 変換
             polarConv(pic)
             # udp設定
-            sendAddr = ('192.168.12.73', 1234)  # 送信先(esp32)のipアドレス, ポート番号は1234で統一する
+            sendAddr = ('192.168.13.81', 1234)  # 送信先(esp32)のipアドレス, ポート番号は1234で統一する
             udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
             for k in range(3): #パケットロスがあるので3回送る
@@ -93,7 +93,7 @@ while True:
                         if i == PIXELS-1:
                             udp.sendto(data.encode('utf-8'), sendAddr)
                             time.sleep(0.002) #sleepがないとパケットロスが激増する
-                            print(data.encode('utf-8'))
+                            # print(data.encode('utf-8'))
             # print(count)
         count += 1
 
