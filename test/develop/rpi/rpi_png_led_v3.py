@@ -112,7 +112,7 @@ while True:                  # Loop forever
 	if(time.process_time() - time_old > rot_time / div):
 		time_old = time.process_time()
 		for i in range(numpixels):
-			strip[i] = pic[num_div][i]
+			strip[i] = pic[(num_div+int(div/2))%div][i]
 		
 		strip.show()
 		# print(f"num_div:{num_div}")
