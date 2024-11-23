@@ -6,7 +6,7 @@ import serial
 import time
 
 # シリアルポートの設定（ポート名とボーレートを適切に設定）
-ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=0)  # ポート名とボーレートを変更してください
+ser = serial.Serial('/dev/ttyUSB1', 115200, timeout=0)  # ポート名とボーレートを変更してください
 time.sleep(2)  # 接続の安定化のために少し待機
 
 while True:
