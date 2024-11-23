@@ -51,7 +51,7 @@ num_div = 0
 prev_frame_hash = None
 
 
-def initialize_ndi():
+def initialize_ndi(): #edit https://github.com/buresu/ndi-python
 	"""Initialize NDI and return receiver and finder objects."""
 	if not ndi.initialize():
 		raise RuntimeError("NDI Initialization failed.")
